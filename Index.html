@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>NovaChat P2P</title>
+
+<style>
+body {
+   margin: 0;
+   font-family: system-ui, Arial;
+   background: #0b0f17;
+   color: white;
+   display: flex;
+   height: 100vh;
+}
+
+/* LEFT PANEL */
+.left {
+   width: 35%;
+   background: #111827;
+   padding: 15px;
+   overflow-y: auto;
+   border-right: 1px solid #222;
+}
+
+h2 {
+   margin-top: 0;
+   font-size: 18px;
+   color: #60a5fa;
+}
+
+textarea {
+   width: 100%;
+   height: 80px;
+   margin: 5px 0;
+   background: #0b1220;
+   border: 1px solid #2a3446;
+   color: white;
+   border-radius: 8px;
+   padding: 8px;
+   resize: none;
+}
+
+button {
+   width: 100%;
+   padding: 10px;
+   margin-top: 5px;
+   background: #2563eb;
+   border: none;
+   border-radius: 8px;
+   color: white;
+   cursor: pointer;
+}
+
+button:hover {
+   background: #1d4ed8;
+}
+
+/* CHAT AREA */
+.right {
+   flex: 1;
+   display: flex;
+   flex-direction: column;
+}
+
+.topbar {
+   padding: 12px;
+   background: #111827;
+   border-bottom: 1px solid #222;
+   font-weight: bold;
+}
+
+#chat {
+   flex: 1;
+   padding: 15px;
+   overflow-y: auto;
+   display: flex;
+   flex-direction: column;
+   gap: 8px;
+}
+
+/* Bubbles */
+.msg {
+   max-width: 70%;
+   padding: 10px 12px;
+   border-radius: 14px;
+   word-wrap: break-word;
+}
+
+.me {
+   align-self: flex-end;
+   background: #2563eb;
+}
+
+.them {
+   align-self: flex-start;
+   background: #1f2937;
+}
+
+/* INPUT BAR */
+.inputbar {
+   display: flex;
+   padding: 10px;
+   background: #111827;
+   border-top: 1px solid #222;
+}
+
+.inputbar input {
+   flex: 1;
+   padding: 10px;
+   border-radius: 8px;
+   border: 1px solid #2a3446;
+   background: #0b1220;
+   color: white;
+}
+
+.inputbar button {
+   width: 80px;
+   margin-left: 8px;
+}
+</style>
+</head>
+
+<body>
+
+<!-- LEFT SIDE (SETUP) -->
+<div class="left">
+
+<h2>🔗 P2P Setup (No Server)</h2>
+
+<button onclick="createOffer()">Create Offer</button>
+<textarea id="offerBox" placeholder="Offer erscheint hier..."></textarea>
+
+<button onclick="createAnswer()">Create Answer</button>
+<textarea id="answerBox"></textarea>
+
+<textarea id="remoteBox" placeholder="Offer/Answer einfügen"></textarea>
+<button onclick="setRemote()">Set Remote</button>
+
+</div>
+
+<!-- RIGHT SIDE (CHAT) -->
+<div class="right">
+
+<div class="topbar">🔥 NovaChat P2P</div>
+
+<div id="chat"></div>
+
+<div class="inputbar">
+   <input id="msg" placeholder="Nachricht..." />
+   <button onclick="sendMsg()">Send</button>
+</div>
+
+</div>
+
+<script>
+
+let pc;
+let channel;
+
+// -------------------- PEER --------------------
+function createPeer() {
+   pc = new RTCPeerConnection({
+       iceServers: [{ urls: "stun:stun.l.google.com:19302" }]
+   });
+
+   pc.ondatachannel = (e) => {
+       channel = e.channel;
+
+       channel.onmessage = (msg) => {
+           addMsg(msg.data, "them");
+       };
+   };
+}
+
+// -------------------- OFFER --------------------
+async function createOffer() {
+   createPeer();
+
+   channel = pc.createDataChannel("chat");
+
+   channel.onmessage = (msg) => {
+       addMsg(msg.data, "them");
+   };
+
+   const offer = await pc.createOffer();
+   await pc.setLocalDescription(offer);
+
+   document.getElementById("offerBox").value =
+       JSON.stringify(pc.localDescription);
+}
+
+// -------------------- ANSWER --------------------
+async function createAnswer() {
+   createPeer();
+
+   const remote = JSON.parse(document.getElementById("remoteBox").value);
+
+   await pc.setRemoteDescription(remote);
+
+   const answer = await pc.createAnswer();
+   await pc.setLocalDescription(answer);
+
+   document.getElementById("answerBox").value =
+       JSON.stringify(pc.localDescription);
+}
+
+// -------------------- SET REMOTE --------------------
+async function setRemote() {
+   const data = JSON.parse(document.getElementById("remoteBox").value);
+   await pc.setRemoteDescription(data);
+}
+
+// -------------------- CHAT --------------------
+function sendMsg() {
+   const input = document.getElementById("msg");
+   const text = input.value;
+
+   channel.send(text);
+   addMsg(text, "me");
+
+   input.value = "";
+}
+
+// -------------------- UI --------------------
+function addMsg(text, type) {
+   const div = document.createElement("div");
+   div.className = "msg " + type;
+   div.textContent = text;
+
+   document.getElementById("chat").appendChild(div);
+   document.getElementById("chat").scrollTop = 999999;
+}
+
+</script>
+
+</body>
+</html>
